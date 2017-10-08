@@ -3,6 +3,7 @@ package shared
 import (
 	"archive/zip"
 	"os"
+	"strings"
 )
 
 type File struct {
@@ -39,20 +40,7 @@ func NewScanFromFile(plugin, version string, file *os.File) (*Scan, error) {
 			continue
 		}
 
-		r, err := f.Open()
-		if err != nil {
-			scan.AddErrored(f.Name, err)
-			continue
-		}
-
-		hash, err := GetHash(r)
-		if err != nil {
-			scan.AddErrored(f.Name, err)
-			continue
-		}
-		r.Close()
-
-		scan.AddHashed(f.Name, hash)
+		scan.Scan(f.Name)
 	}
 
 	return scan, nil
@@ -64,4 +52,22 @@ func (s *Scan) AddHashed(path string, hash uint32) {
 
 func (s *Scan) AddErrored(path string, err error) {
 	s.Files = append(s.Files, File{path, err, 0})
+}
+
+func (s *Scan) Scan(path string) {
+	if strings.HasSuffix(path, ".php") {
+		f, err := os.Open(path)
+		if err != nil {
+			s.AddErrored(path, err)
+			return
+		}
+
+		hash, err := GetHash(f)
+		if err != nil {
+			s.AddErrored(path, err)
+			return
+		}
+
+		s.AddHashed(path, hash)
+	}
 }
